@@ -32,3 +32,6 @@ src/main/resources/config.properties
 # Carpetas del IDE
 .vscode/.classpath
 bin/
+
+# Generado por maven-shade-plugin al empaquetar
+dependency-reduced-pom.xml
