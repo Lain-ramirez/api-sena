@@ -5,7 +5,7 @@ Incluye dos interfaces sobre la misma logica: una de consola y una grafica (Swin
 
 ## Requisitos (ya disponibles en este Cloud Shell)
 
-- Java 21 (`java -version`)
+- Java 17 o superior (`java -version`) — el proyecto compila con `maven.compiler.target=17`
 - Maven 3.9 (`mvn -version`)
 - Extensiones de VS Code instaladas: soporte de Java (`redhat.java`, `vscjava.vscode-maven`,
   `vscjava.vscode-java-debug`, `vscjava.vscode-java-test`, `vscjava.vscode-java-dependency`)
@@ -53,7 +53,7 @@ mvn compile exec:java
 ### Version ventanas / Swing (requiere pantalla — correr en tu PC)
 
 Este Cloud Shell no tiene servidor grafico, asi que la interfaz Swing no se puede ver aqui.
-Copia o clona el repo en tu PC (con Java 21 y Maven), configura su propio
+Copia o clona el repo en tu PC (con Java 17 o superior y Maven), configura su propio
 `config.properties` y autoriza su IP como se indico arriba, luego corre:
 
 ```bash
@@ -74,22 +74,38 @@ Es un proyecto Maven estandar (`pom.xml`), asi que NetBeans lo reconoce sin conf
 Estos pasos corren en tu PC (NetBeans no esta disponible dentro de este Cloud Shell).
 
 1. Instala **Apache NetBeans** (paquete "Java with Maven") desde https://netbeans.apache.org/download
-   y verifica que tenga JDK 21 configurado en *Tools > Java Platforms*.
+   y verifica en *Tools > Java Platforms* que tengas **JDK 17 o superior**. Maven ya viene
+   incluido en NetBeans, no hay que instalarlo aparte.
 2. Clona el repositorio:
    - Desde NetBeans: *Team > Git > Clone...* y pega la URL
-     `git@github.com:JovannyCO/GA7-220501096-AA3-EV02.git`.
-   - O desde terminal: `git clone git@github.com:JovannyCO/GA7-220501096-AA3-EV02.git`.
+     `https://github.com/JovannyCO/GA7-220501096-AA3-EV02.git`. Marca la rama `production`
+     (es la unica del repositorio).
+   - O desde terminal: `git clone https://github.com/JovannyCO/GA7-220501096-AA3-EV02.git`.
 3. Abre el proyecto: *File > Open Project...*, selecciona la carpeta clonada (la que contiene
    `pom.xml`). NetBeans lo detecta como proyecto Maven y descarga las dependencias
    (`mysql-connector-j`, etc.) automaticamente.
 4. Crea tu propio `src/main/resources/config.properties` a partir de
    `config.properties.example` y completa las credenciales — este archivo no viaja en git,
-   hay que crearlo en cada maquina donde clones el proyecto.
+   hay que crearlo en cada maquina donde clones el proyecto. La ruta debe ser exacta:
+   `Conexion.java` lo carga desde el classpath, asi que solo funciona dentro de
+   `src/main/resources/`.
 5. Autoriza la IP publica de tu PC en cPanel (ver seccion 2): NetBeans corre localmente, igual
    que la version Swing.
 6. Ejecuta la app:
-   - Version consola: clic derecho en `App.java` (paquete `com.crud.app`) > **Run File**.
    - Version ventanas (Swing): clic derecho en `CrudFrame.java` (paquete `com.crud.app.gui`) >
-     **Run File**.
-   - Tambien puedes fijar la clase principal por defecto del proyecto en
-     *Project Properties > Run > Main Class*.
+     **Run File** (`Shift+F6`). Se abre la ventana con el formulario, la tabla y los botones.
+   - Version consola: clic derecho en `App.java` (paquete `com.crud.app`) > **Run File**.
+   - Para que el boton **Run** (`F6`) abra siempre la version grafica, fija la clase principal
+     en *Project Properties > Run > Main Class* > `com.crud.app.gui.CrudFrame`. Por defecto el
+     `pom.xml` apunta a `com.crud.app.App` (consola).
+
+### Problemas frecuentes
+
+| Mensaje | Causa y solucion |
+|---|---|
+| `No se encontro config.properties` | El archivo no esta en `src/main/resources/` o tiene otro nombre (paso 4). |
+| `Access denied for user ...@tu.ip` | Falta autorizar la IP de tu PC en cPanel (paso 5). |
+| `Communications link failure` | Sin internet, o la red bloquea el puerto 3306 (comun en redes institucionales). |
+| `Table 'productos' doesn't exist` | Ejecuta `schema.sql` en phpMyAdmin. |
+| Sale el menu de texto en vez de la ventana | La clase principal sigue siendo `App` (paso 6). |
+| `invalid target release` | El JDK es anterior a 17 (paso 1). |
