@@ -2,8 +2,10 @@ package com.crud.app.gui;
 
 import com.crud.app.dao.ProductoDAO;
 import com.crud.app.modelo.Producto;
+import com.crud.app.util.Moneda;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.SQLException;
@@ -35,12 +37,14 @@ public class CrudFrame extends JFrame {
         add(new JScrollPane(tabla), BorderLayout.CENTER);
         add(construirBotones(), BorderLayout.SOUTH);
 
+        aplicarFormatoPrecio();
+
         tabla.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && tabla.getSelectedRow() != -1) {
                 int fila = tabla.getSelectedRow();
                 txtId.setText(modeloTabla.getValueAt(fila, 0).toString());
                 txtNombre.setText(modeloTabla.getValueAt(fila, 1).toString());
-                txtPrecio.setText(modeloTabla.getValueAt(fila, 2).toString());
+                txtPrecio.setText(formatearCelda(modeloTabla.getValueAt(fila, 2)));
                 txtStock.setText(modeloTabla.getValueAt(fila, 3).toString());
             }
         });
@@ -50,6 +54,25 @@ public class CrudFrame extends JFrame {
         setLocationRelativeTo(null);
 
         cargarTabla();
+    }
+
+    /**
+     * La columna de precio guarda el numero tal cual y solo se dibuja con formato de pesos,
+     * asi la tabla sigue trabajando con valores numericos y no con texto.
+     */
+    private void aplicarFormatoPrecio() {
+        DefaultTableCellRenderer renderer = new DefaultTableCellRenderer() {
+            @Override
+            protected void setValue(Object value) {
+                setText(formatearCelda(value));
+            }
+        };
+        renderer.setHorizontalAlignment(SwingConstants.RIGHT);
+        tabla.getColumnModel().getColumn(2).setCellRenderer(renderer);
+    }
+
+    private static String formatearCelda(Object valor) {
+        return valor instanceof Number numero ? Moneda.formatear(numero.doubleValue()) : "";
     }
 
     private JPanel construirFormulario() {
@@ -115,7 +138,9 @@ public class CrudFrame extends JFrame {
             limpiarFormulario();
             cargarTabla();
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Precio y stock deben ser numericos.", "Datos invalidos", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Revisa el precio y el stock.\n\nPrecio: 19000, 19.000 o $19.000\nStock: un numero entero",
+                    "Datos invalidos", JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             mostrarError(ex);
         }
@@ -132,7 +157,9 @@ public class CrudFrame extends JFrame {
             limpiarFormulario();
             cargarTabla();
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Precio y stock deben ser numericos.", "Datos invalidos", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Revisa el precio y el stock.\n\nPrecio: 19000, 19.000 o $19.000\nStock: un numero entero",
+                    "Datos invalidos", JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             mostrarError(ex);
         }
@@ -159,7 +186,7 @@ public class CrudFrame extends JFrame {
     }
 
     private double leerPrecio() {
-        return Double.parseDouble(txtPrecio.getText().trim());
+        return Moneda.parsear(txtPrecio.getText());
     }
 
     private int leerStock() {

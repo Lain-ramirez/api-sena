@@ -1,5 +1,7 @@
 package com.crud.app.modelo;
 
+import com.crud.app.util.Moneda;
+
 public class Producto {
 
     private int id;
@@ -57,6 +59,7 @@ public class Producto {
 
     @Override
     public String toString() {
-        return String.format("ID: %d | Nombre: %s | Precio: %.2f | Stock: %d", id, nombre, precio, stock);
+        return String.format("ID: %d | Nombre: %s | Precio: %s | Stock: %d",
+                id, nombre, Moneda.formatear(precio), stock);
     }
 }
