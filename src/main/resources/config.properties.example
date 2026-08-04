@@ -1,0 +1,9 @@
+# Copia este archivo como config.properties (mismo directorio) y completa
+# los datos reales de la base de datos en cPanel. config.properties NO se
+# sube a git (ver .gitignore) para no exponer credenciales.
+
+db.host=IP_O_DOMINIO_CPANEL
+db.port=3306
+db.name=nombre_basedatos
+db.user=usuario
+db.password=contrasena
