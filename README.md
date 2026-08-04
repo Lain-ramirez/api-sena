@@ -44,28 +44,31 @@ cPanel solo acepta conexiones desde IPs que agregues explicitamente en
 
 ## 3. Ejecutar la aplicacion
 
-### Version consola (funciona en este Cloud Shell)
+La clase principal por defecto es la version grafica (`CrudFrame`), definida en la propiedad
+`exec.mainClass` del `pom.xml`.
+
+### Version ventanas / Swing — por defecto (requiere pantalla, correr en tu PC)
 
 ```bash
 mvn compile exec:java
 ```
 
-### Version ventanas / Swing (requiere pantalla — correr en tu PC)
+Este Cloud Shell no tiene servidor grafico, asi que aqui falla con
+`No X11 DISPLAY variable was set`. Clona el repo en tu PC (con Java 17 o superior),
+configura su propio `config.properties` y autoriza su IP como se indico arriba.
 
-Este Cloud Shell no tiene servidor grafico, asi que la interfaz Swing no se puede ver aqui.
-Copia o clona el repo en tu PC (con Java 17 o superior y Maven), configura su propio
-`config.properties` y autoriza su IP como se indico arriba, luego corre:
+### Version consola (funciona en este Cloud Shell)
 
 ```bash
-mvn compile exec:java -Dexec.mainClass=com.crud.app.gui.CrudFrame
+mvn compile exec:java -Dexec.mainClass=com.crud.app.App
 ```
 
 ## 4. Compilar un jar ejecutable
 
 ```bash
 mvn package
-java -jar target/app.jar                              # version consola
-java -cp target/app.jar com.crud.app.gui.CrudFrame     # version ventanas (Swing)
+java -jar target/app.jar                    # version ventanas (Swing), es la del manifiesto
+java -cp target/app.jar com.crud.app.App    # version consola
 ```
 
 ## 5. Conectar el repo con NetBeans
@@ -92,12 +95,12 @@ Estos pasos corren en tu PC (NetBeans no esta disponible dentro de este Cloud Sh
 5. Autoriza la IP publica de tu PC en cPanel (ver seccion 2): NetBeans corre localmente, igual
    que la version Swing.
 6. Ejecuta la app:
-   - Version ventanas (Swing): clic derecho en `CrudFrame.java` (paquete `com.crud.app.gui`) >
-     **Run File** (`Shift+F6`). Se abre la ventana con el formulario, la tabla y los botones.
+   - Boton **Run** (`F6`): abre la version grafica, porque el `pom.xml` ya define
+     `exec.mainClass` como `com.crud.app.gui.CrudFrame`. No hay que configurar nada en el IDE.
+   - Si NetBeans pide elegir la clase principal, selecciona `com.crud.app.gui.CrudFrame`.
    - Version consola: clic derecho en `App.java` (paquete `com.crud.app`) > **Run File**.
-   - Para que el boton **Run** (`F6`) abra siempre la version grafica, fija la clase principal
-     en *Project Properties > Run > Main Class* > `com.crud.app.gui.CrudFrame`. Por defecto el
-     `pom.xml` apunta a `com.crud.app.App` (consola).
+   - Alternativa que siempre funciona: clic derecho en `CrudFrame.java` > **Run File**
+     (`Shift+F6`).
 
 ### Problemas frecuentes
 

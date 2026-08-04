@@ -13,6 +13,9 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Clase que se ejecuta por defecto (boton Run / F6 en NetBeans y `mvn exec:java`).
+             Para la version de consola: mvn exec:java -Dexec.mainClass=com.crud.app.App -->
+        <exec.mainClass>com.crud.app.gui.CrudFrame</exec.mainClass>
     </properties>
 
     <dependencies>
@@ -36,7 +39,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.4.1</version>
                 <configuration>
-                    <mainClass>com.crud.app.App</mainClass>
+                    <mainClass>${exec.mainClass}</mainClass>
                 </configuration>
             </plugin>
             <plugin>
@@ -52,7 +55,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.crud.app.App</mainClass>
+                                    <mainClass>${exec.mainClass}</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
