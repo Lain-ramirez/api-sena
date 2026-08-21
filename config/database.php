@@ -3,39 +3,27 @@
  * config/database.php
  * Configuracion de conexion a la base de datos MySQL via PDO.
  *
- * Credenciales predeterminadas de XAMPP:
- *   Host   : localhost
- *   Puerto : 3306
- *   Usuario: root
- *   Pass   : (vacio por defecto)
- *
- * Cambia DB_NAME por el nombre de tu base de datos creada en phpMyAdmin.
+ * Entorno: Google Cloud Workstation con MySQL 8 instalado localmente.
+ * Puerto : 3306 | Usuario: root | Password: (vacio)
  */
 
-define('DB_HOST',    'localhost');
+define('DB_HOST',    '127.0.0.1');  // usar IP en vez de socket para PHP CLI server
 define('DB_PORT',    '3306');
-define('DB_NAME',    'api_sena');   // <- nombre de la BD que crearas en phpMyAdmin
-define('DB_USER',    'root');       // usuario por defecto en XAMPP
-define('DB_PASS',    '');           // contrasena vacia por defecto en XAMPP
+define('DB_NAME',    'api_sena');
+define('DB_USER',    'root');
+define('DB_PASS',    '');
 define('DB_CHARSET', 'utf8mb4');
 
 class Database
 {
     private static ?PDO $connection = null;
 
-    /**
-     * Retorna una instancia singleton de la conexion PDO.
-     * Lanza excepcion si no puede conectar.
-     */
     public static function getConnection(): PDO
     {
         if (self::$connection === null) {
             $dsn = sprintf(
                 'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-                DB_HOST,
-                DB_PORT,
-                DB_NAME,
-                DB_CHARSET
+                DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
             );
 
             try {
@@ -50,7 +38,7 @@ class Database
                 echo json_encode([
                     'status'  => 'error',
                     'message' => 'No se pudo conectar a la base de datos.',
-                    'hint'    => 'Verifica que XAMPP este corriendo y que la BD "' . DB_NAME . '" exista en phpMyAdmin.',
+                    'detail'  => $e->getMessage(),
                 ]);
                 exit;
             }

@@ -38,7 +38,13 @@ require_once __DIR__ . '/config/database.php';
 
 $pdo    = Database::getConnection();
 $method = $_SERVER['REQUEST_METHOD'];
-$id     = isset($_GET['id']) ? (int) $_GET['id'] : null;
+
+// Extraer ID de la URL (?id=X)
+$id = null;
+if (isset($_GET['id']) && is_numeric($_GET['id'])) {
+    $id = (int) $_GET['id'];
+}
+
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -47,7 +53,11 @@ $id     = isset($_GET['id']) ? (int) $_GET['id'] : null;
  */
 function getBody(): array
 {
-    $body = json_decode(file_get_contents('php://input'), true);
+    $raw = file_get_contents('php://input');
+    if (trim($raw) === '') {
+        return [];
+    }
+    $body = json_decode($raw, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
         http_response_code(400);
         echo json_encode(['status' => 'error', 'message' => 'Body JSON invalido.']);
@@ -146,9 +156,14 @@ if ($method === 'POST') {
 // ─── PUT ──────────────────────────────────────────────────────────────────────
 
 if ($method === 'PUT') {
+    $body = getBody();
+    if (!$id && isset($body['id']) && is_numeric($body['id'])) {
+        $id = (int) $body['id'];
+    }
+
     if (!$id) {
         http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Falta el parametro "id" en la URL. Ejemplo: ?id=1']);
+        echo json_encode(['status' => 'error', 'message' => 'Falta el parametro "id" en la URL (ej: ?id=1) o en el body JSON.']);
         exit;
     }
 
@@ -201,9 +216,14 @@ if ($method === 'PUT') {
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 if ($method === 'DELETE') {
+    $body = getBody();
+    if (!$id && isset($body['id']) && is_numeric($body['id'])) {
+        $id = (int) $body['id'];
+    }
+
     if (!$id) {
         http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Falta el parametro "id" en la URL. Ejemplo: ?id=1']);
+        echo json_encode(['status' => 'error', 'message' => 'Falta el parametro "id" en la URL (ej: ?id=1) o en el body JSON.']);
         exit;
     }
 
