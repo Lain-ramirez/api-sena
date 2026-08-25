@@ -1,71 +1,95 @@
 <?php
 /**
  * auth/register.php
- * Endpoint: POST /auth/register
- * Registra un nuevo usuario en la tabla `usuarios`.
+ * -----------------------------------------------------------------------------
+ * Módulo de Autenticación - Servicio Web de Registro de Usuarios
+ * -----------------------------------------------------------------------------
+ * Descripción:
+ * Procesa el registro de nuevos usuarios en el sistema. Valida que los datos
+ * obligatorios estén presentes (nombre, email, password), verifica la estructura
+ * correcta del correo electrónico y comprueba la unicidad del email en la BD.
+ * Realiza el hash unidireccional y seguro del password mediante BCRYPT antes
+ * de almacenar la información en MySQL utilizando sentencias preparadas PDO.
  *
- * Body JSON esperado:
- * {
- *   "nombre":   "Juan Perez",
- *   "email":    "juan@correo.com",
- *   "password": "miClave123"
- * }
+ * Contenido:
+ * - Configuración de encabezados HTTP (CORS, Métodos permitidos, Content-Type JSON).
+ * - Control de método HTTP (Permite únicamente POST).
+ * - Extracción y decodificación del Payload JSON.
+ * - Validación exhaustiva de entradas y formato de email.
+ * - Verificación de no duplicidad de correo (código HTTP 409 Conflict).
+ * - Cifrado seguro de contraseña con password_hash (BCRYPT).
+ * - Inserción en la base de datos y retorno del registro creado (código HTTP 201 Created).
+ * -----------------------------------------------------------------------------
  */
 
-header('Content-Type: application/json');
+// Cabeceras HTTP para permitir comunicación con clientes REST y definir formato JSON
+header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-// Responder preflight CORS
+// Responder a peticiones preflight CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-// Solo aceptamos POST
+// Restringir el acceso exclusivamente al verbo HTTP POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => 'Metodo no permitido. Usa POST.']);
+    echo json_encode([
+        'status'  => 'error',
+        'message' => 'Método no permitido. Utilice POST para registrar usuarios.'
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
+// Incluir configuración y conexión a la base de datos
 require_once __DIR__ . '/../config/database.php';
 
-// Leer y decodificar el body JSON
+// Leer y decodificar el cuerpo de la petición (JSON Raw)
 $body = json_decode(file_get_contents('php://input'), true);
 
-// Validar campos requeridos
+// Validación de presencia de campos obligatorios
 $errores = [];
 if (empty($body['nombre']))   $errores[] = 'El campo "nombre" es requerido.';
 if (empty($body['email']))    $errores[] = 'El campo "email" es requerido.';
 if (empty($body['password'])) $errores[] = 'El campo "password" es requerido.';
 
+// Validación de formato sintáctico del correo electrónico
 if (!empty($body['email']) && !filter_var($body['email'], FILTER_VALIDATE_EMAIL)) {
-    $errores[] = 'El "email" no tiene un formato valido.';
+    $errores[] = 'El campo "email" no cuenta con un formato de correo electrónico válido.';
 }
 
+// Si existen errores de validación, retornar código HTTP 422 (Unprocessable Entity)
 if (!empty($errores)) {
     http_response_code(422);
-    echo json_encode(['status' => 'error', 'errors' => $errores]);
+    echo json_encode([
+        'status' => 'error',
+        'errors' => $errores
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 $pdo = Database::getConnection();
 
-// Verificar que el email no este ya registrado
-$stmt = $pdo->prepare('SELECT id FROM usuarios WHERE email = :email');
-$stmt->execute([':email' => $body['email']]);
+// Verificar si el correo electrónico ya se encuentra registrado en el sistema
+$stmt = $pdo->prepare('SELECT id FROM usuarios WHERE email = :email LIMIT 1');
+$stmt->execute([':email' => strtolower(trim($body['email']))]);
+
 if ($stmt->fetch()) {
-    http_response_code(409);
-    echo json_encode(['status' => 'error', 'message' => 'El email ya esta registrado.']);
+    http_response_code(409); // 409 Conflict: Recurso duplicado
+    echo json_encode([
+        'status'  => 'error',
+        'message' => 'El correo electrónico ya se encuentra registrado en el sistema.'
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-// Hash seguro de la contrasena
+// Encriptación segura de la contraseña mediante el algoritmo BCRYPT
 $hash = password_hash($body['password'], PASSWORD_BCRYPT);
 
-// Insertar usuario
+// Inserción del nuevo usuario utilizando consultas preparadas para mitigar inyecciones SQL
 $insert = $pdo->prepare(
     'INSERT INTO usuarios (nombre, email, password, created_at)
      VALUES (:nombre, :email, :password, NOW())'
@@ -76,15 +100,17 @@ $insert->execute([
     ':password' => $hash,
 ]);
 
-$nuevoId = $pdo->lastInsertId();
+$nuevoId = (int) $pdo->lastInsertId();
 
+// Respuesta exitosa de creación con código HTTP 201 Created (excluyendo el hash de contraseña)
 http_response_code(201);
 echo json_encode([
     'status'  => 'success',
-    'message' => 'Usuario registrado correctamente.',
+    'message' => 'Usuario registrado satisfactoriamente.',
     'data'    => [
-        'id'     => (int) $nuevoId,
+        'id'     => $nuevoId,
         'nombre' => htmlspecialchars(trim($body['nombre'])),
         'email'  => strtolower(trim($body['email'])),
     ],
-]);
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+

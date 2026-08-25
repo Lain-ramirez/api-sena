@@ -1,55 +1,62 @@
 <?php
 /**
  * tareas.php
- * Endpoint principal para el CRUD de tareas.
+ * -----------------------------------------------------------------------------
+ * Módulo de Gestión de Tareas - Servicio Web RESTful (CRUD)
+ * -----------------------------------------------------------------------------
+ * Descripción:
+ * Provee la interfaz RESTful para la gestión completa de tareas (Creación,
+ * Lectura individual y masiva, Actualización y Eliminación). Procesa diferentes
+ * verbos HTTP sobre el mismo recurso (`/tareas.php`), gestionando parámetros
+ * por query string (`?id=N`) o en el cuerpo JSON.
  *
- * Rutas soportadas (misma URL, distinto metodo HTTP):
- *   GET    /tareas.php          -> Listar todas las tareas
- *   GET    /tareas.php?id=N     -> Obtener una tarea por ID
- *   POST   /tareas.php          -> Crear una tarea nueva
- *   PUT    /tareas.php?id=N     -> Actualizar una tarea existente
- *   DELETE /tareas.php?id=N     -> Eliminar una tarea
+ * Métodos HTTP y Acciones soportadas:
+ *   - GET    /tareas.php          -> Obtener listado de todas las tareas ordenadas cronológicamente.
+ *   - GET    /tareas.php?id=N     -> Obtener detalle de una tarea específica por su ID.
+ *   - POST   /tareas.php          -> Crear una nueva tarea con validación de título y estado.
+ *   - PUT    /tareas.php?id=N     -> Actualizar la información de una tarea existente.
+ *   - DELETE /tareas.php?id=N     -> Eliminar definitivamente una tarea del sistema.
+ *   - OPTIONS                     -> Manejo de preflight CORS.
  *
- * Tabla esperada en MySQL (crea esto en phpMyAdmin):
- * -------------------------------------------------------
- * CREATE TABLE tareas (
- *   id          INT AUTO_INCREMENT PRIMARY KEY,
- *   titulo      VARCHAR(150)  NOT NULL,
- *   descripcion TEXT,
- *   estado      ENUM('pendiente','en_progreso','completada') NOT NULL DEFAULT 'pendiente',
- *   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- *   updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
- * );
- * -------------------------------------------------------
+ * Contenido:
+ * - Configuración de encabezados HTTP (CORS, verbos admitidos y Content-Type JSON).
+ * - Funciones de utilidad (helpers) para extracción y validación de payloads JSON.
+ * - Enrutamiento y control de lógica por método HTTP (GET, POST, PUT, DELETE).
+ * - Manejo exhaustivo de códigos de estado HTTP (200, 201, 400, 404, 405, 422).
+ * - Consultas preparadas con PDO para prevenir vulnerabilidades de Inyección SQL.
+ * -----------------------------------------------------------------------------
  */
 
-header('Content-Type: application/json');
+// Cabeceras HTTP para permitir consumo CORS y definir formato JSON
+header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-// Responder preflight CORS
+// Responder a peticiones preflight CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
+// Incluir módulo de conexión a la base de datos
 require_once __DIR__ . '/config/database.php';
 
 $pdo    = Database::getConnection();
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Extraer ID de la URL (?id=X)
+// Extraer ID del recurso desde la URL si está presente (?id=X)
 $id = null;
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     $id = (int) $_GET['id'];
 }
 
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Funciones de Utilidad (Helpers) ─────────────────────────────────────────
 
 /**
- * Devuelve el body JSON parseado o termina con error 400.
+ * Obtiene y decodifica el cuerpo de la petición en formato JSON.
+ *
+ * @return array Arreglo asociativo con los datos recibidos en el payload JSON.
  */
 function getBody(): array
 {
@@ -59,28 +66,37 @@ function getBody(): array
     }
     $body = json_decode($raw, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
-        http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Body JSON invalido.']);
+        http_response_code(400); // 400 Bad Request
+        echo json_encode([
+            'status'  => 'error',
+            'message' => 'El cuerpo de la petición contiene un JSON inválido o mal formado.'
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
     return $body ?? [];
 }
 
 /**
- * Valida que los campos requeridos existan y no esten vacios.
+ * Valida la existencia y no vacuidad de una lista de campos obligatorios.
+ *
+ * @param array $data Arreglo asociativo con los datos enviados.
+ * @param array $campos Lista de nombres de campos requeridos.
+ * @return array Lista de mensajes de error encontrados.
  */
 function validarCampos(array $data, array $campos): array
 {
     $errores = [];
     foreach ($campos as $campo) {
         if (empty($data[$campo])) {
-            $errores[] = "El campo \"$campo\" es requerido.";
+            $errores[] = "El campo \"$campo\" es obligatorio y no puede estar vacío.";
         }
     }
     return $errores;
 }
 
+// Catálogo de estados válidos permitidos para las tareas
 $estadosValidos = ['pendiente', 'en_progreso', 'completada'];
+
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
@@ -93,12 +109,18 @@ if ($method === 'GET') {
 
         if (!$tarea) {
             http_response_code(404);
-            echo json_encode(['status' => 'error', 'message' => "Tarea con id=$id no encontrada."]);
+            echo json_encode([
+                'status'  => 'error',
+                'message' => "Tarea con id=$id no encontrada."
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             exit;
         }
 
         http_response_code(200);
-        echo json_encode(['status' => 'success', 'data' => $tarea]);
+        echo json_encode([
+            'status' => 'success',
+            'data'   => $tarea
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     } else {
         // Listar todas
         $stmt = $pdo->query('SELECT * FROM tareas ORDER BY created_at DESC');
@@ -109,7 +131,7 @@ if ($method === 'GET') {
             'status' => 'success',
             'total'  => count($tareas),
             'data'   => $tareas,
-        ]);
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
     exit;
 }
@@ -126,7 +148,10 @@ if ($method === 'POST') {
 
     if (!empty($errores)) {
         http_response_code(422);
-        echo json_encode(['status' => 'error', 'errors' => $errores]);
+        echo json_encode([
+            'status' => 'error',
+            'errors' => $errores
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -140,7 +165,7 @@ if ($method === 'POST') {
         ':estado'      => $body['estado'] ?? 'pendiente',
     ]);
 
-    $nuevaId = $pdo->lastInsertId();
+    $nuevaId = (int) $pdo->lastInsertId();
     $nueva   = $pdo->prepare('SELECT * FROM tareas WHERE id = :id');
     $nueva->execute([':id' => $nuevaId]);
 
@@ -149,7 +174,7 @@ if ($method === 'POST') {
         'status'  => 'success',
         'message' => 'Tarea creada correctamente.',
         'data'    => $nueva->fetch(),
-    ]);
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -163,7 +188,10 @@ if ($method === 'PUT') {
 
     if (!$id) {
         http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Falta el parametro "id" en la URL (ej: ?id=1) o en el body JSON.']);
+        echo json_encode([
+            'status'  => 'error',
+            'message' => 'Falta el parámetro "id" en la URL (ej: ?id=1) o en el body JSON.'
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -172,11 +200,13 @@ if ($method === 'PUT') {
     $check->execute([':id' => $id]);
     if (!$check->fetch()) {
         http_response_code(404);
-        echo json_encode(['status' => 'error', 'message' => "Tarea con id=$id no encontrada."]);
+        echo json_encode([
+            'status'  => 'error',
+            'message' => "Tarea con id=$id no encontrada."
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    $body    = getBody();
     $errores = validarCampos($body, ['titulo']);
 
     if (!empty($body['estado']) && !in_array($body['estado'], $estadosValidos)) {
@@ -185,7 +215,10 @@ if ($method === 'PUT') {
 
     if (!empty($errores)) {
         http_response_code(422);
-        echo json_encode(['status' => 'error', 'errors' => $errores]);
+        echo json_encode([
+            'status' => 'error',
+            'errors' => $errores
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -209,7 +242,7 @@ if ($method === 'PUT') {
         'status'  => 'success',
         'message' => 'Tarea actualizada correctamente.',
         'data'    => $actualizada->fetch(),
-    ]);
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -223,7 +256,10 @@ if ($method === 'DELETE') {
 
     if (!$id) {
         http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Falta el parametro "id" en la URL (ej: ?id=1) o en el body JSON.']);
+        echo json_encode([
+            'status'  => 'error',
+            'message' => 'Falta el parámetro "id" en la URL (ej: ?id=1) o en el body JSON.'
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -233,7 +269,10 @@ if ($method === 'DELETE') {
 
     if (!$tarea) {
         http_response_code(404);
-        echo json_encode(['status' => 'error', 'message' => "Tarea con id=$id no encontrada."]);
+        echo json_encode([
+            'status'  => 'error',
+            'message' => "Tarea con id=$id no encontrada."
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -245,11 +284,15 @@ if ($method === 'DELETE') {
         'status'  => 'success',
         'message' => "Tarea \"" . $tarea['titulo'] . "\" eliminada correctamente.",
         'data'    => ['id_eliminado' => $id],
-    ]);
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-// ─── Metodo no soportado ──────────────────────────────────────────────────────
+// ─── Método no soportado ──────────────────────────────────────────────────────
 
 http_response_code(405);
-echo json_encode(['status' => 'error', 'message' => 'Metodo HTTP no soportado.']);
+echo json_encode([
+    'status'  => 'error',
+    'message' => 'Método HTTP no soportado.'
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
